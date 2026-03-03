@@ -5,13 +5,8 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import FocusTimer from './src/components/FocusTimer';
 import CharacterPanel from './src/components/CharacterPanel';
-
-// Placeholder for Hall (will be implemented next)
-function HallScreen() {
-  return (
-    <Text style={styles.placeholder}>🏰 Hall Screen - Coming Soon</Text>
-  );
-}
+import HallPanel from './src/components/HallPanel';
+import Inventory from './src/components/Inventory';
 
 const Tab = createBottomTabNavigator();
 
@@ -52,8 +47,16 @@ function AppContent() {
           }}
         />
         <Tab.Screen
+          name="Inventory"
+          component={Inventory}
+          options={{ 
+            tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🎒</Text>,
+            headerTitle: 'Inventory',
+          }}
+        />
+        <Tab.Screen
           name="Hall"
-          component={HallScreen}
+          component={HallPanel}
           options={{ 
             tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🏰</Text>,
             headerTitle: 'Focus Hall',
@@ -78,14 +81,6 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0f172a',
-  },
-  placeholder: {
-    flex: 1,
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    color: '#94a3b8',
-    fontSize: 18,
     backgroundColor: '#0f172a',
   },
 });
