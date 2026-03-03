@@ -1,0 +1,9 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@focus-forge/shared": ["../../packages/shared/src"]
+    }
+  }
+}
