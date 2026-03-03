@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useState } from 'react';
+import { useAuth } from '@clerk/nextjs';
 import {
   GameState,
   Item,
@@ -10,13 +11,11 @@ import {
   calculateQuitPenalty,
   calculateSessionXp,
   getTotalBonus,
-  loadGameState,
-  saveGameState,
-  webStorage,
 } from '@focus-forge/shared';
 
 interface GameContextType {
   state: GameState;
+  isLoading: boolean;
   startSession: (duration: number, activity: string) => void;
   completeSession: () => { xp: number; loot: Item[] };
   quitSession: (percentCompleted: number) => void;
@@ -30,27 +29,108 @@ interface GameContextType {
 
 const GameContext = createContext<GameContextType | null>(null);
 
-export function GameProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(gameReducer, initialState);
+// Local storage fallback for offline mode
+const saveToLocalStorage = (state: GameState) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('focus-forge-offline', JSON.stringify(state));
+  }
+};
 
-  // Load from localStorage on mount
+const loadFromLocalStorage = (): GameState | null => {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('focus-forge-offline');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  }
+  return null;
+};
+
+export function GameProvider({ children }: { children: React.ReactNode }) {
+  const { isLoaded, userId } = useAuth();
+  const [state, dispatch] = useReducer(gameReducer, initialState);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(true);
+
+  // Load game state from API on mount
   useEffect(() => {
-    const load = async () => {
-      const saved = await loadGameState(webStorage);
-      if (saved) {
-        dispatch({ type: 'LOAD_STATE', payload: saved });
+    const loadGameState = async () => {
+      if (!isLoaded) return;
+      
+      if (!userId) {
+        // Try to load from localStorage for offline mode
+        const offlineState = loadFromLocalStorage();
+        if (offlineState) {
+          dispatch({ type: 'LOAD_STATE', payload: offlineState });
+        }
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/game');
+        if (response.ok) {
+          const data = await response.json();
+          dispatch({ 
+            type: 'LOAD_STATE', 
+            payload: {
+              character: data.character,
+              inventory: data.inventory,
+              hall: data.hall,
+              sessions: data.sessions,
+              streak: data.streak,
+              lastSessionDate: data.lastSessionDate,
+              totalFocusHours: data.totalFocusHours,
+            } 
+          });
+          setIsOnline(true);
+        } else {
+          // Fall back to localStorage
+          const offlineState = loadFromLocalStorage();
+          if (offlineState) {
+            dispatch({ type: 'LOAD_STATE', payload: offlineState });
+          }
+          setIsOnline(false);
+        }
+      } catch (error) {
+        console.error('Error loading game state:', error);
+        const offlineState = loadFromLocalStorage();
+        if (offlineState) {
+          dispatch({ type: 'LOAD_STATE', payload: offlineState });
+        }
+        setIsOnline(false);
+      } finally {
+        setIsLoading(false);
       }
     };
-    load();
-  }, []);
 
-  // Save to localStorage on state change
+    loadGameState();
+  }, [isLoaded, userId]);
+
+  // Save game state to API when it changes
   useEffect(() => {
-    const save = async () => {
-      await saveGameState(webStorage, state);
+    const saveGameState = async () => {
+      if (!userId || isLoading) return;
+
+      // Always save to localStorage as backup
+      saveToLocalStorage(state);
+
+      // Try to save to API
+      try {
+        await fetch('/api/game', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(state),
+        });
+        setIsOnline(true);
+      } catch (error) {
+        console.error('Error saving game state:', error);
+        setIsOnline(false);
+      }
     };
-    save();
-  }, [state]);
+
+    saveGameState();
+  }, [state, userId, isLoading]);
 
   const startSession = useCallback((duration: number, activity: string) => {
     dispatch({ type: 'START_SESSION', payload: { duration, activity } });
@@ -97,10 +177,22 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     return getTotalBonus(state);
   }, [state]);
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-4xl mb-4">⚔️</div>
+          <div className="text-white">Loading Focus Forge...{!isOnline && ' (Offline Mode)'}</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <GameContext.Provider
       value={{
         state,
+        isLoading,
         startSession,
         completeSession,
         quitSession,
@@ -112,6 +204,11 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         getTotalBonus: getTotalBonusFn,
       }}
     >
+      {!isOnline && userId && (
+        <div className="bg-yellow-600 text-white text-center py-2 text-sm">
+          Offline Mode - Changes will sync when connection is restored
+        </div>
+      )}
       {children}
     </GameContext.Provider>
   );

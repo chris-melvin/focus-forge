@@ -1,17 +1,20 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useAuth, UserButton } from '@clerk/nextjs';
 import FocusTimer from '@/components/FocusTimer';
 import CharacterPanel from '@/components/CharacterPanel';
 import Inventory from '@/components/Inventory';
 import HallPanel from '@/components/HallPanel';
 import { useGame } from '@/context/GameContext';
+import Link from 'next/link';
 
 type Tab = 'focus' | 'character' | 'inventory' | 'hall';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>('focus');
-  const { state } = useGame();
+  const { state, isLoading } = useGame();
+  const { isLoaded, userId } = useAuth();
 
   const tabs = [
     { id: 'focus' as Tab, label: 'Focus', icon: '🎯' },
@@ -19,6 +22,17 @@ export default function Home() {
     { id: 'inventory' as Tab, label: 'Inventory', icon: '🎒' },
     { id: 'hall' as Tab, label: 'Hall', icon: '🏰' },
   ];
+
+  if (isLoading || !isLoaded) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-4xl mb-4">⚔️</div>
+          <div className="text-white">Loading...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950">
@@ -34,15 +48,28 @@ export default function Home() {
               </div>
             </div>
             
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-1">
-                <span>🔥</span>
-                <span className="text-orange-400">{state.streak}</span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 text-sm">
+                <div className="flex items-center gap-1">
+                  <span>🔥</span>
+                  <span className="text-orange-400">{state.streak}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span>⭐</span>
+                  <span className="text-yellow-400">Lv.{state.character.level}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <span>⭐</span>
-                <span className="text-yellow-400">Lv.{state.character.level}</span>
-              </div>
+              
+              {userId ? (
+                <UserButton afterSignOutUrl="/" />
+              ) : (
+                <Link 
+                  href="/sign-in" 
+                  className="text-sm text-blue-400 hover:text-blue-300"
+                >
+                  Sign In
+                </Link>
+              )}
             </div>
           </div>
         </div>
