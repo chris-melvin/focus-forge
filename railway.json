@@ -1,28 +1,14 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS",
-    "nixpacksPlan": {
-      "providers": ["node"],
-      "buildImage": "ghcr.io/railwayapp/nixpacks:ubuntu-1701705157",
-      "phases": {
-        "setup": {
-          "nixPkgs": ["nodejs_20"]
-        },
-        "build": {
-          "cmds": [
-            "cd packages/shared && npm install && npm run build",
-            "cd apps/web && npm install && npx prisma generate && npm run build"
-          ]
-        }
-      }
-    }
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "apps/web/Dockerfile"
   },
   "deploy": {
-    "startCommand": "cd apps/web && npx prisma migrate deploy && npm start",
-    "healthcheckPath": "/",
-    "healthcheckTimeout": 100,
+    "startCommand": "",
+    "healthcheckPath": "/api/health",
+    "healthcheckTimeout": 60,
     "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 10
+    "restartPolicyMaxRetries": 3
   }
 }
