@@ -10,29 +10,36 @@ datasource db {
 model User {
   id        String     @id
   email     String     @unique
+  gameState GameState?
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
-  gameState GameState?
 }
 
 model GameState {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  // Character data (stored as JSON)
-  character         Json     @default("{\"level\":1,\"xp\":0,\"maxXp\":100,\"hp\":100,\"maxHp\":100,\"gold\":50,\"equipment\":{}}")
+  // Character data
+  character        Json
   
-  // Inventory and hall
-  inventory         Json     @default("[]")
-  hall              Json     @default("[]")
-  sessions          Json     @default("[]")
+  // Inventory
+  inventory        Json     @default("[]")
   
-  // Stats
-  streak            Int      @default(0)
-  lastSessionDate   String?
-  totalFocusHours   Float    @default(0)
+  // Hall rooms
+  hall             Json     @default("[]")
   
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  // Session history
+  sessions         Json     @default("[]")
+  
+  // Streak data
+  streak           Int      @default(0)
+  lastSessionDate  String?
+  totalFocusHours  Float    @default(0)
+  
+  // Sync metadata
+  lastSyncedAt     DateTime @updatedAt
+  
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }

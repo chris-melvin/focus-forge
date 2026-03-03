@@ -1,79 +1,105 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/lib/prisma';
-import { initialState } from '@focus-forge/shared';
 
+// GET /api/game - Get user's game state
 export async function GET() {
-  const { userId } = await auth();
-  
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
-    let gameState = await prisma.gameState.findUnique({
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const gameState = await prisma.gameState.findUnique({
       where: { userId },
     });
 
-    // Create initial game state if doesn't exist
     if (!gameState) {
-      gameState = await prisma.gameState.create({
-        data: {
-          userId,
-          character: initialState.character,
-          inventory: initialState.inventory,
-          hall: initialState.hall,
-          sessions: initialState.sessions,
-          streak: initialState.streak,
-          lastSessionDate: initialState.lastSessionDate,
-          totalFocusHours: initialState.totalFocusHours,
+      // Return default state if none exists
+      return NextResponse.json({
+        character: {
+          level: 1,
+          xp: 0,
+          maxXp: 100,
+          hp: 100,
+          maxHp: 100,
+          gold: 50,
+          equipment: {},
         },
+        inventory: [],
+        hall: [],
+        sessions: [],
+        streak: 0,
+        lastSessionDate: null,
+        totalFocusHours: 0,
       });
     }
 
-    return NextResponse.json(gameState);
+    return NextResponse.json({
+      character: gameState.character,
+      inventory: gameState.inventory,
+      hall: gameState.hall,
+      sessions: gameState.sessions,
+      streak: gameState.streak,
+      lastSessionDate: gameState.lastSessionDate,
+      totalFocusHours: gameState.totalFocusHours,
+      lastSyncedAt: gameState.lastSyncedAt,
+    });
   } catch (error) {
     console.error('Error fetching game state:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch game state' },
+      { status: 500 }
+    );
   }
 }
 
-export async function PUT(request: NextRequest) {
-  const { userId } = await auth();
-  
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+// POST /api/game - Save game state
+export async function POST(request: Request) {
   try {
-    const data = await request.json();
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
+    const body = await request.json();
+    const { character, inventory, hall, sessions, streak, lastSessionDate, totalFocusHours } = body;
+
+    // Upsert game state
     const gameState = await prisma.gameState.upsert({
       where: { userId },
       update: {
-        character: data.character,
-        inventory: data.inventory,
-        hall: data.hall,
-        sessions: data.sessions,
-        streak: data.streak,
-        lastSessionDate: data.lastSessionDate,
-        totalFocusHours: data.totalFocusHours,
+        character,
+        inventory,
+        hall,
+        sessions,
+        streak,
+        lastSessionDate,
+        totalFocusHours,
       },
       create: {
         userId,
-        character: data.character || initialState.character,
-        inventory: data.inventory || initialState.inventory,
-        hall: data.hall || initialState.hall,
-        sessions: data.sessions || initialState.sessions,
-        streak: data.streak || initialState.streak,
-        lastSessionDate: data.lastSessionDate,
-        totalFocusHours: data.totalFocusHours || 0,
+        character,
+        inventory,
+        hall,
+        sessions,
+        streak,
+        lastSessionDate,
+        totalFocusHours,
       },
     });
 
-    return NextResponse.json(gameState);
+    return NextResponse.json({
+      success: true,
+      lastSyncedAt: gameState.lastSyncedAt,
+    });
   } catch (error) {
-    console.error('Error updating game state:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error saving game state:', error);
+    return NextResponse.json(
+      { error: 'Failed to save game state' },
+      { status: 500 }
+    );
   }
 }

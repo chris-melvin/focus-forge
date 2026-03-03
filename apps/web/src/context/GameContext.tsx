@@ -16,6 +16,8 @@ import {
 interface GameContextType {
   state: GameState;
   isLoading: boolean;
+  isSaving: boolean;
+  lastSyncedAt: Date | null;
   startSession: (duration: number, activity: string) => void;
   completeSession: () => { xp: number; loot: Item[] };
   quitSession: (percentCompleted: number) => void;
@@ -25,44 +27,24 @@ interface GameContextType {
   removeDecor: (itemId: string, roomId: string) => void;
   useConsumable: (itemId: string) => void;
   getTotalBonus: () => { xpBonus: number; lootBonus: number };
+  syncNow: () => Promise<void>;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
 
-// Local storage fallback for offline mode
-const saveToLocalStorage = (state: GameState) => {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('focus-forge-offline', JSON.stringify(state));
-  }
-};
-
-const loadFromLocalStorage = (): GameState | null => {
-  if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem('focus-forge-offline');
-    if (saved) {
-      return JSON.parse(saved);
-    }
-  }
-  return null;
-};
-
 export function GameProvider({ children }: { children: React.ReactNode }) {
-  const { isLoaded, userId } = useAuth();
+  const { userId, isLoaded } = useAuth();
   const [state, dispatch] = useReducer(gameReducer, initialState);
   const [isLoading, setIsLoading] = useState(true);
-  const [isOnline, setIsOnline] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
   // Load game state from API on mount
   useEffect(() => {
+    if (!isLoaded) return;
+    
     const loadGameState = async () => {
-      if (!isLoaded) return;
-      
       if (!userId) {
-        // Try to load from localStorage for offline mode
-        const offlineState = loadFromLocalStorage();
-        if (offlineState) {
-          dispatch({ type: 'LOAD_STATE', payload: offlineState });
-        }
         setIsLoading(false);
         return;
       }
@@ -71,66 +53,64 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         const response = await fetch('/api/game');
         if (response.ok) {
           const data = await response.json();
-          dispatch({ 
-            type: 'LOAD_STATE', 
-            payload: {
-              character: data.character,
-              inventory: data.inventory,
-              hall: data.hall,
-              sessions: data.sessions,
-              streak: data.streak,
-              lastSessionDate: data.lastSessionDate,
-              totalFocusHours: data.totalFocusHours,
-            } 
-          });
-          setIsOnline(true);
-        } else {
-          // Fall back to localStorage
-          const offlineState = loadFromLocalStorage();
-          if (offlineState) {
-            dispatch({ type: 'LOAD_STATE', payload: offlineState });
-          }
-          setIsOnline(false);
+          dispatch({ type: 'LOAD_STATE', payload: data });
+          setLastSyncedAt(new Date());
         }
       } catch (error) {
-        console.error('Error loading game state:', error);
-        const offlineState = loadFromLocalStorage();
-        if (offlineState) {
-          dispatch({ type: 'LOAD_STATE', payload: offlineState });
-        }
-        setIsOnline(false);
+        console.error('Failed to load game state:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadGameState();
-  }, [isLoaded, userId]);
+  }, [userId, isLoaded]);
 
   // Save game state to API when it changes
-  useEffect(() => {
-    const saveGameState = async () => {
-      if (!userId || isLoading) return;
+  const saveGameState = useCallback(async () => {
+    if (!userId) return;
 
-      // Always save to localStorage as backup
-      saveToLocalStorage(state);
+    setIsSaving(true);
+    try {
+      const response = await fetch('/api/game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          character: state.character,
+          inventory: state.inventory,
+          hall: state.hall,
+          sessions: state.sessions,
+          streak: state.streak,
+          lastSessionDate: state.lastSessionDate,
+          totalFocusHours: state.totalFocusHours,
+        }),
+      });
 
-      // Try to save to API
-      try {
-        await fetch('/api/game', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(state),
-        });
-        setIsOnline(true);
-      } catch (error) {
-        console.error('Error saving game state:', error);
-        setIsOnline(false);
+      if (response.ok) {
+        setLastSyncedAt(new Date());
       }
-    };
+    } catch (error) {
+      console.error('Failed to save game state:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [state, userId]);
 
-    saveGameState();
-  }, [state, userId, isLoading]);
+  // Debounced save
+  useEffect(() => {
+    if (!userId || isLoading) return;
+    
+    const timer = setTimeout(() => {
+      saveGameState();
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [state, userId, isLoading, saveGameState]);
+
+  // Manual sync function
+  const syncNow = useCallback(async () => {
+    await saveGameState();
+  }, [saveGameState]);
 
   const startSession = useCallback((duration: number, activity: string) => {
     dispatch({ type: 'START_SESSION', payload: { duration, activity } });
@@ -177,22 +157,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     return getTotalBonus(state);
   }, [state]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-4xl mb-4">⚔️</div>
-          <div className="text-white">Loading Focus Forge...{!isOnline && ' (Offline Mode)'}</div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <GameContext.Provider
       value={{
         state,
         isLoading,
+        isSaving,
+        lastSyncedAt,
         startSession,
         completeSession,
         quitSession,
@@ -202,13 +173,9 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         removeDecor,
         useConsumable,
         getTotalBonus: getTotalBonusFn,
+        syncNow,
       }}
     >
-      {!isOnline && userId && (
-        <div className="bg-yellow-600 text-white text-center py-2 text-sm">
-          Offline Mode - Changes will sync when connection is restored
-        </div>
-      )}
       {children}
     </GameContext.Provider>
   );
