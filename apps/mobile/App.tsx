@@ -1,43 +1,15 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, SafeAreaView } from 'react-native';
-import { GameProvider, useGame } from './src/context/GameContext';
+import { StyleSheet, Text, SafeAreaView } from 'react-native';
+import { GameProvider } from './src/context/GameContext';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import FocusTimer from './src/components/FocusTimer';
+import CharacterPanel from './src/components/CharacterPanel';
 
-// Simple placeholder screens for now
-function FocusScreen() {
-  const { state } = useGame();
-  return (
-    <View style={styles.screen}>
-      <Text style={styles.title}>Focus Timer</Text>
-      <Text style={styles.text}>Level: {state.character.level}</Text>
-      <Text style={styles.text}>XP: {state.character.xp}/{state.character.maxXp}</Text>
-      <Text style={styles.text}>Streak: {state.streak} days</Text>
-    </View>
-  );
-}
-
-function CharacterScreen() {
-  const { state } = useGame();
-  return (
-    <View style={styles.screen}>
-      <Text style={styles.title}>Character</Text>
-      <Text style={styles.text}>HP: {state.character.hp}/{state.character.maxHp}</Text>
-      <Text style={styles.text}>Gold: {state.character.gold}</Text>
-      <Text style={styles.text}>Inventory: {state.inventory.length} items</Text>
-    </View>
-  );
-}
-
+// Placeholder for Hall (will be implemented next)
 function HallScreen() {
-  const { state } = useGame();
-  const unlockedRooms = state.hall.filter(r => state.totalFocusHours >= r.unlockHours);
   return (
-    <View style={styles.screen}>
-      <Text style={styles.title}>Focus Hall</Text>
-      <Text style={styles.text}>Unlocked Rooms: {unlockedRooms.length}/{state.hall.length}</Text>
-      <Text style={styles.text}>Total Focus: {Math.floor(state.totalFocusHours)}h</Text>
-    </View>
+    <Text style={styles.placeholder}>🏰 Hall Screen - Coming Soon</Text>
   );
 }
 
@@ -50,25 +22,42 @@ function AppContent() {
         screenOptions={{
           tabBarActiveTintColor: '#3b82f6',
           tabBarInactiveTintColor: '#6b7280',
-          tabBarStyle: { backgroundColor: '#111827' },
-          headerStyle: { backgroundColor: '#111827' },
+          tabBarStyle: { 
+            backgroundColor: '#111827',
+            borderTopColor: '#1e293b',
+            borderTopWidth: 1,
+          },
+          headerStyle: { 
+            backgroundColor: '#111827',
+            borderBottomColor: '#1e293b',
+            borderBottomWidth: 1,
+          },
           headerTintColor: '#fff',
         }}
       >
         <Tab.Screen
           name="Focus"
-          component={FocusScreen}
-          options={{ tabBarIcon: () => <Text>🎯</Text> }}
+          component={FocusTimer}
+          options={{ 
+            tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🎯</Text>,
+            headerTitle: 'Focus Forge',
+          }}
         />
         <Tab.Screen
           name="Character"
-          component={CharacterScreen}
-          options={{ tabBarIcon: () => <Text>🧙</Text> }}
+          component={CharacterPanel}
+          options={{ 
+            tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🧙‍♂️</Text>,
+            headerTitle: 'Character',
+          }}
         />
         <Tab.Screen
           name="Hall"
           component={HallScreen}
-          options={{ tabBarIcon: () => <Text>🏰</Text> }}
+          options={{ 
+            tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🏰</Text>,
+            headerTitle: 'Focus Hall',
+          }}
         />
       </Tab.Navigator>
     </NavigationContainer>
@@ -91,22 +80,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0f172a',
   },
-  screen: {
+  placeholder: {
     flex: 1,
-    backgroundColor: '#0f172a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 20,
-  },
-  text: {
-    fontSize: 16,
+    textAlign: 'center',
+    textAlignVertical: 'center',
     color: '#94a3b8',
-    marginBottom: 10,
+    fontSize: 18,
+    backgroundColor: '#0f172a',
   },
 });
