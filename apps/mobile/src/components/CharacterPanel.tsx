@@ -2,8 +2,8 @@ import React from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
+  StyleSheet,
   TouchableOpacity,
 } from 'react-native';
 import { useGame } from '../context/GameContext';
@@ -33,17 +33,29 @@ export default function CharacterPanel() {
     return '#fb923c';
   };
 
-  const equipmentSlots = [
-    { key: 'weapon', icon: '⚔️', label: 'Weapon' },
-    { key: 'head', icon: '🪖', label: 'Head' },
-    { key: 'body', icon: '👕', label: 'Body' },
-    { key: 'hands', icon: '🧤', label: 'Hands' },
-    { key: 'feet', icon: '👢', label: 'Feet' },
-    { key: 'accessory', icon: '💍', label: 'Accessory' },
-  ];
+  const getItemIcon = (slot: string) => {
+    switch (slot) {
+      case 'weapon': return '⚔️';
+      case 'head': return '🪖';
+      case 'body': return '👕';
+      case 'hands': return '🧤';
+      case 'feet': return '👢';
+      case 'accessory': return '💍';
+      default: return '❓';
+    }
+  };
+
+  const getRarityColor = (rarity?: string) => {
+    switch (rarity) {
+      case 'legendary': return '#fbbf24';
+      case 'epic': return '#c084fc';
+      case 'rare': return '#60a5fa';
+      default: return '#9ca3af';
+    }
+  };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header Card */}
       <View style={styles.headerCard}>
         <View style={styles.avatarSection}>
@@ -63,73 +75,67 @@ export default function CharacterPanel() {
             </View>
             <View style={styles.xpBar}>
               <View
-                style={[styles.xpBarFill, { width: `${getLevelProgress()}%` }]}
+                style={[styles.xpFill, { width: `${getLevelProgress()}%` }]}
               />
             </View>
           </View>
 
-          <View style={styles.statsGrid}>
+          <View style={styles.quickStats}>
             <View style={styles.statBox}>
               <Text style={styles.statLabel}>HP</Text>
-              <Text style={styles.statValueRed}>
+              <Text style={[styles.statValue, styles.hpColor]}>
                 {character.hp}/{character.maxHp}
               </Text>
             </View>
-
+            
             <View style={styles.statBox}>
               <Text style={styles.statLabel}>Gold</Text>
-              <Text style={styles.statValueYellow}>🪙 {character.gold}</Text>
+              <Text style={[styles.statValue, styles.goldColor]}>
+                🪙 {character.gold}
+              </Text>
             </View>
           </View>
-
-          {streak > 0 && (
-            <View style={[styles.streakContainer, { borderColor: getStreakColor() }]}>
-              <Text style={[styles.streakEmoji, { color: getStreakColor() }]}>
-                {getStreakEmoji()}
-              </Text>
-              <View>
-                <Text style={[styles.streakCount, { color: getStreakColor() }]}>
-                  {streak} Day Streak
-                </Text>
-                <Text style={styles.streakBonus}>
-                  +{Math.min(50, streak * 10)}% XP Bonus
-                </Text>
-              </View>
-            </View>
-          )}
         </View>
       </View>
+
+      {/* Streak Card */}
+      {streak > 0 && (
+        <View style={[styles.streakCard, { borderColor: getStreakColor() }]}>
+          <Text style={styles.streakEmoji}>{getStreakEmoji()}</Text>
+          <View style={styles.streakInfo}>
+            <Text style={[styles.streakCount, { color: getStreakColor() }]}>
+              {streak} Day Streak
+            </Text>
+            <Text style={styles.streakBonus}>
+              +{Math.min(50, streak * 10)}% XP Bonus
+            </Text>
+          </View>
+        </View>
+      )}
 
       {/* Equipment Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Equipment</Text>
         <View style={styles.equipmentGrid}>
-          {equipmentSlots.map((slot) => {
-            const item = character.equipment[slot.key as keyof typeof character.equipment];
+          {['weapon', 'head', 'body', 'hands', 'feet', 'accessory'].map((slot) => {
+            const item = character.equipment[slot as keyof typeof character.equipment];
             return (
               <View
-                key={slot.key}
+                key={slot}
                 style={[
                   styles.equipmentSlot,
-                  item && {
-                    borderColor:
-                      item.rarity === 'legendary'
-                        ? '#fbbf24'
-                        : item.rarity === 'epic'
-                        ? '#a855f7'
-                        : item.rarity === 'rare'
-                        ? '#3b82f6'
-                        : '#9ca3af',
-                  },
+                  item && { borderColor: getRarityColor(item.rarity) }
                 ]}
               >
                 {item ? (
                   <>
-                    <Text style={styles.equipmentIcon}>{slot.icon}</Text>
-                    <Text style={styles.equipmentRarity}>{item.rarity}</Text>
+                    <Text style={styles.equipmentIcon}>{getItemIcon(slot)}</Text>
+                    <Text style={[styles.equipmentRarity, { color: getRarityColor(item.rarity) }]}>
+                      {item.rarity}
+                    </Text>
                   </>
                 ) : (
-                  <Text style={styles.emptySlot}>{slot.label}</Text>
+                  <Text style={styles.emptySlot}>{slot.charAt(0).toUpperCase()}</Text>
                 )}
               </View>
             );
@@ -141,22 +147,31 @@ export default function CharacterPanel() {
       {(bonuses.xpBonus > 0 || bonuses.lootBonus > 0) && (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Permanent Bonuses</Text>
-          <View style={styles.bonusesContainer}>
+          <View style={styles.bonusRow}>
             {bonuses.xpBonus > 0 && (
-              <View style={styles.bonusItem}>
-                <Text>📚</Text>
-                <Text style={styles.bonusTextXp}>+{bonuses.xpBonus}% XP</Text>
+              <View style={styles.bonusChip}>
+                <Text style={styles.bonusIcon}>📚</Text>
+                <Text style={styles.xpBonusText}>+{bonuses.xpBonus}% XP</Text>
               </View>
             )}
             {bonuses.lootBonus > 0 && (
-              <View style={styles.bonusItem}>
-                <Text>🎁</Text>
-                <Text style={styles.bonusTextLoot}>+{bonuses.lootBonus}% Loot</Text>
+              <View style={styles.bonusChip}>
+                <Text style={styles.bonusIcon}>🎁</Text>
+                <Text style={styles.lootBonusText}>+{bonuses.lootBonus}% Loot</Text>
               </View>
             )}
           </View>
         </View>
       )}
+
+      {/* Inventory Preview */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Inventory</Text>
+        <View style={styles.inventoryCard}>
+          <Text style={styles.inventoryCount}>{state.inventory.length} items</Text>
+          <Text style={styles.inventoryHint}>Tap to view full inventory</Text>
+        </View>
+      </View>
 
       {/* Total Focus Time */}
       <View style={styles.footer}>
@@ -173,13 +188,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0f172a',
   },
+  content: {
+    padding: 16,
+  },
   headerCard: {
     backgroundColor: '#1e293b',
-    margin: 15,
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
+    marginBottom: 16,
     flexDirection: 'row',
-    gap: 20,
+    gap: 16,
   },
   avatarSection: {
     alignItems: 'center',
@@ -187,24 +205,24 @@ const styles = StyleSheet.create({
   avatar: {
     width: 80,
     height: 80,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#334155',
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#334155',
+    borderColor: '#475569',
   },
   avatarEmoji: {
     fontSize: 40,
   },
   levelBadge: {
-    backgroundColor: '#0f172a',
-    borderRadius: 12,
+    backgroundColor: '#334155',
     paddingHorizontal: 10,
     paddingVertical: 4,
+    borderRadius: 12,
     marginTop: -10,
-    borderWidth: 1,
-    borderColor: '#334155',
+    borderWidth: 2,
+    borderColor: '#1e293b',
   },
   levelText: {
     color: '#fff',
@@ -213,96 +231,98 @@ const styles = StyleSheet.create({
   },
   statsSection: {
     flex: 1,
+    justifyContent: 'center',
   },
   xpBarContainer: {
-    marginBottom: 15,
+    marginBottom: 12,
   },
   xpBarHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 5,
+    marginBottom: 6,
   },
   xpLabel: {
     color: '#94a3b8',
-    fontSize: 14,
+    fontSize: 12,
   },
   xpValue: {
     color: '#fbbf24',
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: 12,
+    fontWeight: '600',
   },
   xpBar: {
     height: 8,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#334155',
     borderRadius: 4,
     overflow: 'hidden',
   },
-  xpBarFill: {
+  xpFill: {
     height: '100%',
     backgroundColor: '#fbbf24',
     borderRadius: 4,
   },
-  statsGrid: {
+  quickStats: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 15,
+    gap: 12,
   },
   statBox: {
-    flex: 1,
     backgroundColor: '#0f172a',
-    borderRadius: 8,
     padding: 10,
-    alignItems: 'center',
+    borderRadius: 8,
+    flex: 1,
   },
   statLabel: {
-    color: '#94a3b8',
-    fontSize: 12,
-    marginBottom: 4,
+    color: '#64748b',
+    fontSize: 11,
+    marginBottom: 2,
   },
-  statValueRed: {
+  statValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  hpColor: {
     color: '#f87171',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
-  statValueYellow: {
+  goldColor: {
     color: '#fbbf24',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
-  streakContainer: {
+  streakCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#0f172a',
-    borderRadius: 8,
-    padding: 10,
-    borderWidth: 1,
+    backgroundColor: '#1e293b',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 2,
   },
   streakEmoji: {
-    fontSize: 24,
+    fontSize: 32,
+    marginRight: 12,
+  },
+  streakInfo: {
+    flex: 1,
   },
   streakCount: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: 'bold',
+    marginBottom: 2,
   },
   streakBonus: {
     color: '#94a3b8',
     fontSize: 12,
   },
   section: {
-    marginHorizontal: 15,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
+    color: '#94a3b8',
+    fontSize: 14,
     marginBottom: 12,
   },
   equipmentGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   equipmentSlot: {
     width: '31%',
@@ -315,47 +335,69 @@ const styles = StyleSheet.create({
     borderColor: '#334155',
   },
   equipmentIcon: {
-    fontSize: 28,
+    fontSize: 24,
     marginBottom: 4,
   },
   equipmentRarity: {
     fontSize: 10,
-    color: '#94a3b8',
-    textTransform: 'capitalize',
+    textTransform: 'uppercase',
+    fontWeight: '600',
   },
   emptySlot: {
+    color: '#475569',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  bonusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  bonusChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1e293b',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  bonusIcon: {
+    fontSize: 16,
+  },
+  xpBonusText: {
+    color: '#4ade80',
+    fontWeight: '600',
+  },
+  lootBonusText: {
+    color: '#60a5fa',
+    fontWeight: '600',
+  },
+  inventoryCard: {
+    backgroundColor: '#1e293b',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  inventoryCount: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  inventoryHint: {
     color: '#64748b',
     fontSize: 12,
   },
-  bonusesContainer: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  bonusItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#1e293b',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  bonusTextXp: {
-    color: '#4ade80',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  bonusTextLoot: {
-    color: '#60a5fa',
-    fontSize: 14,
-    fontWeight: '600',
-  },
   footer: {
-    alignItems: 'center',
-    paddingVertical: 20,
+    marginTop: 8,
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#1e293b',
   },
   footerText: {
     color: '#64748b',
-    fontSize: 14,
+    textAlign: 'center',
+    fontSize: 12,
   },
 });
