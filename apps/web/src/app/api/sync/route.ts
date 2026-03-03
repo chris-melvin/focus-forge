@@ -1,16 +1,20 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 
 // POST /api/sync - Sync game state (for mobile apps)
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth();
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
     
-    if (!userId) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const userId = session.user.id;
     const body = await request.json();
     const { 
       character, 
@@ -60,7 +64,6 @@ export async function POST(request: Request) {
     }
 
     // Simple conflict resolution: server wins if newer
-    // TODO: Implement proper merge strategy
     const serverTime = new Date(serverState.lastSyncedAt).getTime();
     const clientTime = lastSyncedAt ? new Date(lastSyncedAt).getTime() : 0;
 

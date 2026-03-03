@@ -9,9 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@clerk/nextjs": "^6.39.0",
     "@focus-forge/shared": "file:../../packages/shared",
     "@prisma/client": "^7.4.2",
+    "better-auth": "^1.5.2",
     "next": "16.1.6",
     "prisma": "^7.4.2",
     "react": "19.2.3",

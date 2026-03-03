@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback, useState } from 'react';
-import { useAuth } from '@clerk/nextjs';
+import { useSession } from 'better-auth/react';
 import {
   GameState,
   Item,
@@ -33,15 +33,17 @@ interface GameContextType {
 const GameContext = createContext<GameContextType | null>(null);
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
-  const { userId, isLoaded } = useAuth();
+  const { data: session, isPending } = useSession();
   const [state, dispatch] = useReducer(gameReducer, initialState);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
+  const userId = session?.user?.id;
+
   // Load game state from API on mount
   useEffect(() => {
-    if (!isLoaded) return;
+    if (isPending) return;
     
     const loadGameState = async () => {
       if (!userId) {
@@ -64,7 +66,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     };
 
     loadGameState();
-  }, [userId, isLoaded]);
+  }, [userId, isPending]);
 
   // Save game state to API when it changes
   const saveGameState = useCallback(async () => {

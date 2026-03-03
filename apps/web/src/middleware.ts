@@ -1,20 +1,30 @@
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { getSessionCookie } from "better-auth/cookies";
 
-const isProtectedRoute = createRouteMatcher([
-  '/',
-  '/api/game(.*)',
-  '/api/sync(.*)',
-]);
+export async function middleware(request: NextRequest) {
+  const sessionCookie = getSessionCookie(request);
+  
+  // Protected routes that require authentication
+  const protectedPaths = ["/", "/api/game", "/api/sync"];
+  const isProtectedPath = protectedPaths.some(
+    (path) =>
+      request.nextUrl.pathname === path ||
+      request.nextUrl.pathname.startsWith("/api/game/") ||
+      request.nextUrl.pathname.startsWith("/api/sync/")
+  );
 
-export default clerkMiddleware(async (auth, req) => {
-  if (isProtectedRoute(req)) {
-    await auth.protect();
+  if (isProtectedPath && !sessionCookie) {
+    return NextResponse.redirect(new URL("/sign-in", request.url));
   }
-});
+
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: [
-    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
-    '/(api|trpc)(.*)',
+    "/",
+    "/api/game/:path*",
+    "/api/sync/:path*",
   ],
 };

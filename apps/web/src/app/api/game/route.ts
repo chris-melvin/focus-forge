@@ -1,15 +1,20 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 
 // GET /api/game - Get user's game state
 export async function GET() {
   try {
-    const { userId } = await auth();
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
     
-    if (!userId) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const userId = session.user.id;
 
     const gameState = await prisma.gameState.findUnique({
       where: { userId },
@@ -58,12 +63,15 @@ export async function GET() {
 // POST /api/game - Save game state
 export async function POST(request: Request) {
   try {
-    const { userId } = await auth();
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
     
-    if (!userId) {
+    if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const userId = session.user.id;
     const body = await request.json();
     const { character, inventory, hall, sessions, streak, lastSessionDate, totalFocusHours } = body;
 

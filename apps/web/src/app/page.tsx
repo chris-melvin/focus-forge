@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useAuth, UserButton } from '@clerk/nextjs';
+import { useSession, signOut } from 'better-auth/react';
 import FocusTimer from '@/components/FocusTimer';
 import CharacterPanel from '@/components/CharacterPanel';
 import Inventory from '@/components/Inventory';
@@ -14,7 +14,7 @@ type Tab = 'focus' | 'character' | 'inventory' | 'hall';
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>('focus');
   const { state, isLoading } = useGame();
-  const { isLoaded, userId } = useAuth();
+  const { data: session, isPending } = useSession();
 
   const tabs = [
     { id: 'focus' as Tab, label: 'Focus', icon: '🎯' },
@@ -23,7 +23,7 @@ export default function Home() {
     { id: 'hall' as Tab, label: 'Hall', icon: '🏰' },
   ];
 
-  if (isLoading || !isLoaded) {
+  if (isLoading || isPending) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
         <div className="text-center">
@@ -33,6 +33,8 @@ export default function Home() {
       </div>
     );
   }
+
+  const userId = session?.user?.id;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950">
@@ -61,7 +63,12 @@ export default function Home() {
               </div>
               
               {userId ? (
-                <UserButton afterSignOutUrl="/" />
+                <button 
+                  onClick={() => signOut()}
+                  className="text-sm text-gray-400 hover:text-white"
+                >
+                  Sign Out
+                </button>
               ) : (
                 <Link 
                   href="/sign-in" 
