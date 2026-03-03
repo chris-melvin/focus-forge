@@ -1,109 +1,143 @@
-# 🚂 Railway Deployment Guide
+# 🚂 Railway Deployment Guide (Better Auth)
 
 ## Prerequisites
 
 1. [Railway account](https://railway.app)
-2. [Clerk account](https://clerk.com)
+2. GitHub repo: `chris-melvin/focus-forge`
 3. PostgreSQL database (Railway provides this)
 
-## Step 1: Create Clerk Application
+---
 
-1. Go to https://dashboard.clerk.com
-2. Create a new application
-3. Copy the Publishable Key and Secret Key
-4. Configure redirect URLs:
-   - Development: `http://localhost:3000`
-   - Production: `https://your-app.railway.app`
+## Step 1: Create Railway Project
 
-## Step 2: Deploy to Railway
+1. Go to https://railway.app/dashboard
+2. Click **"New Project"**
+3. Select **"Deploy from GitHub repo"**
+4. Choose `chris-melvin/focus-forge`
+5. Click **"Add Variables"**
 
-### Option A: Railway CLI
+---
 
-```bash
-# Install Railway CLI
-npm install -g @railway/cli
+## Step 2: Add PostgreSQL Database
 
-# Login
-railway login
+1. In your project, click **"New"**
+2. Select **"Database"** → **"Add PostgreSQL"**
+3. Wait for provisioning (~30 seconds)
+4. Railway auto-adds `DATABASE_URL`
 
-# Link project
-railway link
-
-# Deploy
-railway up
-```
-
-### Option B: Railway Dashboard
-
-1. Go to https://railway.app/new
-2. Select "Deploy from GitHub repo"
-3. Choose `chris-melvin/focus-forge`
-4. Set root directory to `apps/web`
-5. Add PostgreSQL database (New > Database > Add PostgreSQL)
+---
 
 ## Step 3: Configure Environment Variables
 
-In Railway Dashboard > Variables:
+Go to your service → **Variables** tab:
 
 ```
+# Database (auto-added by Railway)
 DATABASE_URL=${{Postgres.DATABASE_URL}}
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_live_...
-CLERK_SECRET_KEY=sk_live_...
-NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
-NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
-NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/
-NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
+
+# Better Auth - Generate secret:
+# Run: openssl rand -base64 32
+BETTER_AUTH_SECRET=your-random-secret-here
+BETTER_AUTH_URL=${{RAILWAY_PUBLIC_DOMAIN}}
+
+# Optional: OAuth providers
+# GOOGLE_CLIENT_ID=...
+# GOOGLE_CLIENT_SECRET=...
+# GITHUB_CLIENT_ID=...
+# GITHUB_CLIENT_SECRET=...
 ```
 
-## Step 4: Database Migration
+---
 
+## Step 4: Configure Build Settings
+
+Go to **Settings** tab:
+
+| Setting | Value |
+|---------|-------|
+| Root Directory | `apps/web` |
+| Build Command | `npm install && npx prisma generate && npm run build` |
+| Start Command | `npx prisma migrate deploy && npm start` |
+
+---
+
+## Step 5: Deploy
+
+1. Click **"Deploy"** or push to GitHub
+2. Wait for build to complete
+
+---
+
+## Step 6: Run Database Migration
+
+**Via Railway Dashboard:**
+1. Go to your service
+2. Click **"Shell"** (top right)
+3. Run:
+   ```bash
+   npx prisma migrate deploy
+   ```
+
+**Or via CLI:**
 ```bash
-# Connect to Railway project
-railway connect
-
-# Run migration
+npm install -g @railway/cli
+railway login
+railway link
 railway run npx prisma migrate deploy
 ```
 
-Or via Railway Dashboard:
-1. Go to your service
-2. Click "Deploy" tab
-3. Add deploy command: `npx prisma migrate deploy && npm start`
+---
 
-## Step 5: Verify Deployment
+## Step 7: Verify Deployment
 
-1. Open your Railway app URL
-2. Sign up / Sign in
-3. Start a focus session
-4. Check that data persists after refresh
+1. Open your Railway URL
+2. Click **"Sign Up"**
+3. Create account with email/password
+4. Sign in
+5. Start a focus session
+6. Refresh - data should persist!
+
+---
 
 ## 📱 Mobile Sync Setup
 
-For mobile apps to sync with Railway backend:
+Update mobile API URL:
 
-1. Update mobile app API base URL:
-   ```typescript
-   // apps/mobile/src/api/config.ts
-   export const API_BASE_URL = 'https://your-app.railway.app';
-   ```
+```typescript
+// apps/mobile/src/api/client.ts
+const API_BASE_URL = 'https://your-app.up.railway.app';
+```
 
-2. Mobile uses the `/api/sync` endpoint with Clerk JWT tokens
+Mobile uses session cookies for auth (handled automatically by Better Auth).
 
-3. Configure Clerk JWT template for mobile (optional but recommended)
+---
 
 ## 🔧 Troubleshooting
 
 ### Build fails
-- Check that `DATABASE_URL` is set
-- Verify `prisma generate` runs during build
+```
+Error: Cannot find module '@prisma/client'
+```
+**Fix:** Ensure `npx prisma generate` runs before build
+
+### Database error
+```
+Error: P1001: Can't reach database
+```
+**Fix:** Check `DATABASE_URL` is set correctly
 
 ### Auth not working
-- Verify Clerk keys are correct
-- Check redirect URLs in Clerk dashboard
+- Verify `BETTER_AUTH_SECRET` is set (min 32 chars)
+- Check `BETTER_AUTH_URL` matches your domain
+- Ensure cookies are enabled
 
-### Database connection error
-- Ensure PostgreSQL is provisioned
-- Check `DATABASE_URL` format: `postgresql://user:pass@host:port/db`
+### Migration fails
+```
+Error: P3005: Database error
+```
+**Fix:** Run `npx prisma migrate reset` (⚠️ deletes data)
+
+---
 
 ## 📊 Architecture
 
@@ -112,19 +146,20 @@ For mobile apps to sync with Railway backend:
 │                        Railway                               │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌──────────────┐         ┌─────────────────────────────┐  │
-│  │  Next.js App │◄───────►│  Clerk Authentication       │  │
-│  │  (Web + API) │         │  - Sign in/up               │  │
-│  └──────────────┘         │  - JWT tokens               │  │
+│  │  Next.js App │◄───────►│  Better Auth                │  │
+│  │  (Web + API) │         │  - Email/password           │  │
+│  └──────────────┘         │  - Sessions (cookies)       │  │
 │         │                 └─────────────────────────────┘  │
 │         │                                                    │
 │         ▼                 ┌─────────────────────────────┐  │
 │  ┌──────────────┐         │  PostgreSQL Database        │  │
-│  │  Prisma ORM  │◄───────►│  - Users                    │  │
-│  │  - GameState │         │  - GameState                │  │
-│  └──────────────┘         └─────────────────────────────┘  │
+│  │  Prisma ORM  │◄───────►│  - Users (Better Auth)      │  │
+│  │  - GameState │         │  - Sessions                 │  │
+│  └──────────────┘         │  - GameState                │  │
+│                           └─────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
                               │
-                              ▼
+                              ▼ HTTP + Cookies
                     ┌──────────────────┐
                     │  Mobile Apps     │
                     │  - iOS/Android   │
@@ -132,18 +167,22 @@ For mobile apps to sync with Railway backend:
                     └──────────────────┘
 ```
 
+---
+
 ## 🚀 Production Checklist
 
-- [ ] Clerk app in Production mode
-- [ ] Railway project connected to GitHub
-- [ ] PostgreSQL database provisioned
-- [ ] Environment variables set
-- [ ] Database migrations run
-- [ ] Health check endpoint responding
-- [ ] Auth working (sign up/in)
-- [ ] Game state persisting
+- [x] Railway project created
+- [x] PostgreSQL database added
+- [x] Environment variables set
+- [x] Build settings configured
+- [x] Database migrations run
+- [x] App deployed successfully
+- [x] Auth working (sign up/in)
+- [x] Game state persisting
 - [ ] Custom domain (optional)
 
 ---
 
-**Ready to deploy!** 🎮⚔️
+**Deploy URL:** `https://your-project.up.railway.app`
+
+**Ready to forge!** ⚔️🎮
