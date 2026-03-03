@@ -1,24 +1,46 @@
 {
   "name": "focus-forge",
   "version": "1.0.0",
-  "description": "A productivity RPG with cross-platform support",
+  "description": "A productivity RPG that transforms your focus sessions into a rewarding pixel-art game experience",
   "private": true,
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "scripts": {
-    "dev:web": "npm run dev --workspace=web",
-    "dev:mobile": "npm run start --workspace=mobile",
-    "build:web": "npm run build --workspace=web",
-    "build:mobile": "npm run build --workspace=mobile",
+    "dev:web": "cd apps/web && npm run dev",
+    "dev:mobile": "cd apps/mobile && npm run start",
+    "build:web": "cd packages/shared && npm run build && cd ../../apps/web && npm run build",
+    "build:mobile": "cd apps/mobile && npm run build",
     "build": "npm run build --workspaces",
-    "test": "npm run test --workspaces",
-    "lint": "npm run lint --workspaces"
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run lint --workspaces --if-present",
+    "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules apps/web/dist",
+    "setup": "npm install && cd packages/shared && npm run build",
+    "copy-assets": "./scripts/copy-assets.sh"
   },
   "devDependencies": {
     "turbo": "^2.0.0",
     "typescript": "^5.0.0"
   },
-  "packageManager": "npm@10.0.0"
+  "packageManager": "npm@10.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/chris-melvin/focus-forge.git"
+  },
+  "author": "Chris Melvin",
+  "license": "MIT",
+  "keywords": [
+    "productivity",
+    "rpg",
+    "focus",
+    "pomodoro",
+    "pixel-art",
+    "game",
+    "react",
+    "react-native",
+    "expo",
+    "nextjs"
+  ]
 }

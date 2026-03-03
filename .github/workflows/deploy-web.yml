@@ -1,0 +1,42 @@
+name: Deploy Web
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'apps/web/**'
+      - 'packages/shared/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        cd ../../packages/shared
+        npm install
+        npm run build
+        cd ../../apps/web
+        npm install
+    
+    - name: Build
+      run: npm run build
+    
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./dist
+        cname: focus-forge.app  # Optional: custom domain

@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  test-shared:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/shared
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm install
+    
+    - name: Type check
+      run: npm run lint
+    
+    - name: Build
+      run: npm run build
+
+  test-web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies (shared)
+      run: |
+        cd packages/shared
+        npm install
+        npm run build
+    
+    - name: Install dependencies
+      run: npm install
+    
+    - name: Lint
+      run: npm run lint
+    
+    - name: Build
+      run: npm run build
+
+  test-mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+    
+    - name: Install dependencies (shared)
+      run: |
+        cd packages/shared
+        npm install
+        npm run build
+    
+    - name: Install dependencies
+      run: npm install
+    
+    - name: Type check
+      run: npx tsc --noEmit
